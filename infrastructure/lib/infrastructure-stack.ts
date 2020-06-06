@@ -19,7 +19,7 @@ export class SpritesInfrastructureStack extends cdk.Stack {
     const certificate = acm.Certificate.fromCertificateArn(this, 'PersonalWebsiteCert', this.formatArn({
       service: 'acm',
       sep: ':',
-      resource: `certifcate/${CERT_ID}`
+      resource: `certificate/${CERT_ID}`
     }));
 
     const staticWebsite = new website.StaticWebsite(this, 'SpriteWebsite', {
