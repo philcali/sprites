@@ -2,6 +2,9 @@ import React from 'react';
 import Cell from './Cell';
 import Grid from './Grid';
 
+/**
+ * Preview component delegates the grid style to the Grid component.
+ */
 class Preview extends React.Component {
   /**
    * Utilize the preview controls to generate a preview table

@@ -10,6 +10,9 @@ import Preview from './Preview';
 import Grid from './Grid';
 import icons from './Icons';
 
+/**
+ * Basic editor pane for all sprites.
+ */
 class Editor extends React.Component {
   constructor(props) {
     super(props);
@@ -94,7 +97,9 @@ class Editor extends React.Component {
       y += maxMoveY;
     });
     // There is probably a better way to do this?
-    this.downloadLink.current.href = this.canvas.current.toDataURL('image/png')
+    this.downloadLink.current.download = "spritesheet.png";
+    this.downloadLink.current.href = this.canvas.current
+      .toDataURL('image/png')
       .replace('image/png', 'image/octet-stream');
   }
 
@@ -112,13 +117,9 @@ class Editor extends React.Component {
               {icons.icon('upload')}
               <input style={{ display: 'none' }} accept="image/*" type="file" onChange={this.onAddImage.bind(this)}/>
             </Button>
-          </ButtonGroup>
-          <ButtonGroup aria-label="Download Image">
-            <a ref={this.downloadLink} download="spritesheet.png" href="/">
-              <Button onClick={this.onDownloadImage.bind(this)} disabled={ this.state.images.length === 0 } variant="outline-success">
-                {icons.icon('download')}
-              </Button>
-            </a>
+            <Button href="/" ref={this.downloadLink} onClick={this.onDownloadImage.bind(this)} disabled={this.state.images.length === 0 } variant="outline-success">
+              {icons.icon('download')}
+            </Button>
           </ButtonGroup>
         </ButtonToolbar>
         <hr/>

@@ -1,5 +1,8 @@
 import React from 'react';
 
+/**
+ * An individual cell in a preview-like container.
+ */
 class Cell extends React.Component {
   render() {
     return (

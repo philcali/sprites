@@ -9,6 +9,9 @@ import Home from './Home';
 import NewSprite from './NewSprite';
 import './App.css';
 
+/**
+ * Contains our routes and copyright in the footer.
+ */
 class App extends React.Component {
   render() {
     return (

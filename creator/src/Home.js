@@ -7,6 +7,9 @@ import Button from 'react-bootstrap/Button';
 import { Link } from 'react-router-dom';
 import icons from './Icons';
 
+/**
+ * Home page with banner and marketing and stuff.
+ */
 class Home extends React.Component {
   render() {
     return (
