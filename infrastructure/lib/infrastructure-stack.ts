@@ -65,13 +65,13 @@ export class StaticWebsite extends Construct {
       }
     });
 
-    // Logical ID: SpriteWebsite/StaticWebsiteCNAME (preserves existing Route53 record)
-    this.recordSet = new route53.ARecord(this, 'StaticWebsiteCNAME', {
+    // Route53 CNAME record — depends on the CloudFront distribution output
+    // Uses CNAME (not ALIAS) to avoid dual-homed record conflicts
+    // recordName is relative to the zone, so 'sprites' creates 'sprites.philcali.me'
+    this.recordSet = new route53.CnameRecord(this, 'StaticWebsiteCNAME', {
       zone: props.hostedZone,
-      target: route53.RecordTarget.fromAlias(
-        new route53Targets.CloudFrontTarget(this.distribution)
-      ),
-      recordName: props.domainName
+      recordName: 'sprites',
+      domainName: this.distribution.distributionDomainName,
     });
   }
 }
