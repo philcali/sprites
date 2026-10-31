@@ -1,11 +1,11 @@
+import * as path from 'path';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as route53Targets from 'aws-cdk-lib/aws-route53-targets';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
-import * as lambda from 'aws-cdk-lib/aws-lambda';
-import * as cloudfrontActions from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as cdk from 'aws-cdk-lib';
 
 const DOMAIN_NAME = 'philcali.me';
@@ -32,7 +32,6 @@ export class SpritesInfrastructureStack extends cdk.Stack {
       versioned: false,
       lifecycleRules: [
         {
-          // Clean up old versions if versioning is enabled later
           noncurrentVersionExpiration: cdk.Duration.days(90)
         }
       ]
@@ -86,6 +85,14 @@ export class SpritesInfrastructureStack extends cdk.Stack {
         new route53Targets.CloudFrontTarget(distribution)
       ),
       recordName: `sprites.${DOMAIN_NAME}`
+    });
+
+    // Deploy the built creator app to the S3 bucket
+    new s3deploy.BucketDeployment(this, 'DeployWebsite', {
+      sources: [s3deploy.Source.asset(path.join(__dirname, '../../creator/dist'))],
+      destinationBucket: bucket,
+      destinationKeyPrefix: 'static',
+      prune: true,
     });
 
     // Output the bucket and distribution for reference
