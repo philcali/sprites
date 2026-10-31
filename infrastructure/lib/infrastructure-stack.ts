@@ -37,11 +37,7 @@ export class SpritesInfrastructureStack extends cdk.Stack {
       ]
     });
 
-    // CloudFront OAI for secure S3 access
-    const oai = new cloudfront.OriginAccessIdentity(this, 'SpriteOAI');
-    bucket.grantRead(oai);
-
-    // CloudFront distribution
+    // CloudFront distribution using OAC (Origin Access Control) — the modern replacement for OAI
     const distribution = new cloudfront.Distribution(this, 'SpriteDistribution', {
       comment: 'Sprite Creator static site',
       defaultRootObject: 'index.html',
@@ -61,9 +57,7 @@ export class SpritesInfrastructureStack extends cdk.Stack {
       domainNames: [`sprites.${DOMAIN_NAME}`],
       certificate,
       defaultBehavior: {
-        origin: new origins.S3Origin(bucket, {
-          originAccessIdentity: oai
-        }),
+        origin: origins.S3BucketOrigin.withOriginAccessControl(bucket),
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD,
         cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
@@ -71,7 +65,7 @@ export class SpritesInfrastructureStack extends cdk.Stack {
       },
       additionalBehaviors: {
         '/api/*': {
-          origin: new origins.S3Origin(bucket),
+          origin: origins.S3BucketOrigin.withOriginAccessControl(bucket),
           viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
           cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
         }
