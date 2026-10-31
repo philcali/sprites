@@ -43,7 +43,8 @@ export class StaticWebsite extends Construct {
     });
 
     // CloudFront distribution — logical ID: SpriteWebsite/StaticWebsiteCDN/CFDistribution (preserves existing distribution)
-    this.distribution = new cloudfront.Distribution(this, 'StaticWebsiteCDN', {
+    const cdn = new Construct(this, 'StaticWebsiteCDN');
+    this.distribution = new cloudfront.Distribution(cdn, 'CFDistribution', {
       comment: 'Sprite Creator static site',
       defaultRootObject: 'index.html',
       errorResponses: [
