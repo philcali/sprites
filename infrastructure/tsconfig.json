@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
-    "target":"ES2018",
+    "target": "ES2022",
     "module": "commonjs",
-    "lib": ["es2018"],
+    "lib": ["ES2022"],
     "declaration": true,
     "strict": true,
     "noImplicitAny": true,
@@ -16,8 +16,9 @@
     "inlineSourceMap": true,
     "inlineSources": true,
     "experimentalDecorators": true,
-    "strictPropertyInitialization":false,
+    "strictPropertyInitialization": false,
+    "outDir": "./dist",
     "typeRoots": ["./node_modules/@types"]
   },
-  "exclude": ["cdk.out"]
+  "exclude": ["node_modules", "cdk.out"]
 }

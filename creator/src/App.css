@@ -12,10 +12,6 @@
   font-weight: 300;
 }
 
-#sprite-preview td {
-  padding: 0;
-}
-
 @media (prefers-reduced-motion: no-preference) {
   .App-logo {
     animation: App-logo-spin infinite 20s linear;
@@ -31,10 +27,6 @@
   justify-content: center;
   font-size: calc(10px + 2vmin);
   color: white;
-}
-
-label.btn {
-  margin-bottom: 0px;
 }
 
 .App-link {
