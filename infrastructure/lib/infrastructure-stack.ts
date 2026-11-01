@@ -97,11 +97,10 @@ export class SpritesInfrastructureStack extends cdk.Stack {
       hostedZone
     });
 
-    // Deploy the built creator app to the S3 bucket
+    // Deploy the built creator app to the S3 bucket root
     new s3deploy.BucketDeployment(this, 'DeployWebsite', {
       sources: [s3deploy.Source.asset(path.join(__dirname, '../../creator/dist'))],
       destinationBucket: staticWebsite.content,
-      destinationKeyPrefix: 'static',
       prune: true,
     });
 
