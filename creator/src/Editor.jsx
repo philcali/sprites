@@ -9,6 +9,55 @@ import Card from 'react-bootstrap/Card';
 import ButtonGroup from 'react-bootstrap/ButtonGroup';
 import Dropdown from 'react-bootstrap/Dropdown';
 
+// --- Crop helper functions (extracted for testability) ---
+
+/**
+ * Convert CSS pixel coordinates to internal canvas pixel coordinates.
+ * Uses the actual CSS width/height ratio so it works when the canvas
+ * is scaled down (e.g. on mobile or small windows).
+ */
+export function cssToInternal(cssX, cssY, cssWidth, cssHeight, internalWidth, internalHeight) {
+  const scaleX = internalWidth / cssWidth;
+  const scaleY = internalHeight / cssHeight;
+  return {
+    x: Math.round(cssX * scaleX),
+    y: Math.round(cssY * scaleY),
+  };
+}
+
+/**
+ * Get crop bounds from two internal-pixel points.
+ */
+export function getCropBounds(start, end) {
+  return {
+    x: Math.min(start.x, end.x),
+    y: Math.min(start.y, end.y),
+    w: Math.abs(end.x - start.x),
+    h: Math.abs(end.y - start.y),
+  };
+}
+
+/**
+ * Apply crop to an image, returning a new Image element.
+ */
+export function applyCropToImage(image, start, end) {
+  const bounds = getCropBounds(start, end);
+  if (bounds.w < 1 || bounds.h < 1) return null;
+
+  const tempCanvas = document.createElement('canvas');
+  tempCanvas.width = bounds.w;
+  tempCanvas.height = bounds.h;
+  const ctx = tempCanvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(image, bounds.x, bounds.y, bounds.w, bounds.h, 0, 0, bounds.w, bounds.h);
+
+  const newImg = new Image();
+  return new Promise((resolve) => {
+    newImg.onload = () => resolve(newImg);
+    newImg.src = tempCanvas.toDataURL();
+  });
+}
+
 const TOOLS = [
   { id: 'select', label: 'Select', icon: '⊹' },
   { id: 'crop', label: 'Crop', icon: '⬒' },
@@ -79,13 +128,14 @@ function Editor() {
     setBrightness(0); setContrast(0); setSaturation(0); setHue(0);
   };
 
+  // FIX: Use actual CSS-to-internal pixel ratio instead of zoom
   const getCanvasCoords = (e) => {
     const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
-    return {
-      x: (e.clientX - rect.left) / zoom,
-      y: (e.clientY - rect.top) / zoom,
-    };
+    const cssX = e.clientX - rect.left;
+    const cssY = e.clientY - rect.top;
+    return cssToInternal(cssX, cssY, rect.width, rect.height, canvas.width, canvas.height);
   };
 
   // Draw image with current filters
@@ -115,6 +165,66 @@ function Editor() {
   useEffect(() => {
     drawWithFilters();
   }, [drawWithFilters]);
+
+  // Draw crop preview overlay on top of the image
+  useEffect(() => {
+    if (!isCropping || !cropStart || !cropEnd) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+
+    // Draw the image first (re-draw since filters may have changed)
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(image, 0, 0);
+
+    // Draw semi-transparent overlay (darken everything outside the crop)
+    const x = Math.min(cropStart.x, cropEnd.x);
+    const y = Math.min(cropStart.y, cropEnd.y);
+    const w = Math.abs(cropEnd.x - cropStart.x);
+    const h = Math.abs(cropEnd.y - cropStart.y);
+
+    // Darken outside rectangle
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    // Top
+    ctx.fillRect(0, 0, canvas.width, y);
+    // Bottom
+    ctx.fillRect(0, y + h, canvas.width, canvas.height - y - h);
+    // Left
+    ctx.fillRect(0, y, x, h);
+    // Right
+    ctx.fillRect(x + w, y, canvas.width - x - w, h);
+
+    // Draw crop border
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 3]);
+    ctx.strokeRect(x + 0.5, y + 0.5, w, h);
+    ctx.setLineDash([]);
+
+    // Draw corner handles
+    const handleSize = 8;
+    ctx.fillStyle = '#ffffff';
+    const corners = [
+      [x, y],
+      [x + w, y],
+      [x, y + h],
+      [x + w, y + h],
+    ];
+    corners.forEach(([cx, cy]) => {
+      ctx.fillRect(cx - handleSize / 2, cy - handleSize / 2, handleSize, handleSize);
+    });
+
+    // Draw dimension label
+    const label = `${Math.round(w)} × ${Math.round(h)}`;
+    ctx.font = 'bold 12px sans-serif';
+    const textW = ctx.measureText(label).width;
+    const labelX = x + w / 2 - textW / 2;
+    const labelY = y - 16;
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+    ctx.fillRect(labelX - 4, labelY - 12, textW + 8, 20);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(label, labelX, labelY);
+  }, [isCropping, cropStart, cropEnd, image, brightness, contrast, saturation, hue]);
 
   // Resize
   const handleResize = () => {
@@ -170,28 +280,13 @@ function Editor() {
   };
 
   // Crop
-  const applyCrop = () => {
+  const applyCrop = async () => {
     if (!cropStart || !cropEnd || !image) return;
-    const x = Math.min(cropStart.x, cropEnd.x);
-    const y = Math.min(cropStart.y, cropEnd.y);
-    const w = Math.abs(cropEnd.x - cropStart.x);
-    const h = Math.abs(cropEnd.y - cropStart.y);
-    if (w < 1 || h < 1) return;
-
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = w;
-    tempCanvas.height = h;
-    const ctx = tempCanvas.getContext('2d');
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(image, x, y, w, h, 0, 0, w, h);
-
-    const newImg = new Image();
-    newImg.onload = () => {
-      setImage(newImg);
-      originalImageRef.current = newImg;
-      setResizeTarget({ w, h });
-    };
-    newImg.src = tempCanvas.toDataURL();
+    const newImg = await applyCropToImage(image, cropStart, cropEnd);
+    if (!newImg) return;
+    setImage(newImg);
+    originalImageRef.current = newImg;
+    setResizeTarget({ w: newImg.width, h: newImg.height });
     setCropStart(null);
     setCropEnd(null);
     setIsCropping(false);
@@ -296,7 +391,7 @@ function Editor() {
     link.click();
   };
 
-  // Crop mouse handlers
+  // Crop handlers (mouse)
   const handleCropStart = (e) => {
     if (tool !== 'crop') return;
     const pos = getCanvasCoords(e);
@@ -311,15 +406,38 @@ function Editor() {
     setCropEnd(pos);
   };
 
+  // Crop handlers (touch)
+  const handleTouchCropStart = (e) => {
+    if (tool !== 'crop' || !e.touches[0]) return;
+    const touch = e.touches[0];
+    const fakeEvent = { clientX: touch.clientX, clientY: touch.clientY };
+    const pos = getCanvasCoords(fakeEvent);
+    setCropStart(pos);
+    setCropEnd(pos);
+    setIsCropping(true);
+  };
+
+  const handleTouchCropMove = (e) => {
+    if (!isCropping || !e.touches[0]) return;
+    const touch = e.touches[0];
+    const fakeEvent = { clientX: touch.clientX, clientY: touch.clientY };
+    const pos = getCanvasCoords(fakeEvent);
+    setCropEnd(pos);
+  };
+
   // Color key: pick color from canvas
   const pickColorKey = (e) => {
     if (tool !== 'colorkey') return;
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
-    const x = Math.floor((e.clientX - rect.left) / zoom);
-    const y = Math.floor((e.clientY - rect.top) / zoom);
+    const pos = cssToInternal(
+      e.clientX - rect.left,
+      e.clientY - rect.top,
+      rect.width, rect.height,
+      canvas.width, canvas.height
+    );
     const ctx = canvas.getContext('2d');
-    const pixel = ctx.getImageData(x, y, 1, 1).data;
+    const pixel = ctx.getImageData(pos.x, pos.y, 1, 1).data;
     const hex = '#' + [pixel[0], pixel[1], pixel[2]]
       .map(v => v.toString(16).padStart(2, '0')).join('');
     setPickedColor(hex);
@@ -378,6 +496,13 @@ function Editor() {
                     <Button variant="success" size="sm" className="w-100 mt-1" onClick={applyCrop}>
                       Apply Crop
                     </Button>
+                  )}
+                  {isCropping && cropStart && cropEnd && (
+                    <div className="mt-2 text-center">
+                      <span className="badge bg-secondary">
+                        {Math.round(cropEnd.x - cropStart.x)} × {Math.round(cropEnd.y - cropStart.y)}
+                      </span>
+                    </div>
                   )}
                 </div>
               )}
@@ -520,6 +645,9 @@ function Editor() {
                   onMouseMove={(e) => { moveDraw(e); handleCropMove(e); }}
                   onMouseUp={tool === 'crop' ? handleCropMove : endDraw}
                   onMouseLeave={endDraw}
+                  onTouchStart={tool === 'crop' ? handleTouchCropStart : undefined}
+                  onTouchMove={tool === 'crop' ? handleTouchCropMove : undefined}
+                  onTouchEnd={() => { if (tool === 'crop') setIsCropping(false); endDraw(); }}
                 />
               ) : (
                 <div className="text-center text-muted">
